@@ -25,7 +25,7 @@ type Tweet struct {
 }
 
 // tweetItem sends out tweet after verifying that it hasn't already been sent
-func tweetItem(api *anaconda.TwitterApi, s *mgo.Session, item *gofeed.Item) {
+func tweetItem(api *anaconda.TwitterApi, s *mgo.Session, item *gofeed.Item) bool {
 	session := s.Copy()
 	defer session.Close()
 
@@ -35,7 +35,7 @@ func tweetItem(api *anaconda.TwitterApi, s *mgo.Session, item *gofeed.Item) {
 	count, _ := tweets.Find(bson.M{"url": item.Link}).Count()
 	if count > 0 {
 		log.WithField("url", item.Link).Debug("Item already exists")
-		return
+		return false
 	}
 
 	// Tweet Item
@@ -57,6 +57,7 @@ func tweetItem(api *anaconda.TwitterApi, s *mgo.Session, item *gofeed.Item) {
 	if err != nil {
 		log.Error(err)
 	}
+	return true
 }
 
 // getFeedItems gets the feed items from the RSS feed
@@ -124,11 +125,16 @@ func tweetFeed() {
 		log.Fatal(err)
 	}
 
-	ensureIndex(session)
+	go ensureIndex(session)
 
+	count := 0
 	for _, item := range getFeedItems() {
-		tweetItem(api, session, item)
+		sent := tweetItem(api, session, item)
+		if sent {
+			count++
+		}
 	}
+	log.Info(fmt.Sprintf("%d items were tweeted", count))
 }
 
 func main() {
