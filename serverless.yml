@@ -1,0 +1,16 @@
+service: tenkarstavern-twitterbot
+
+provider:
+  name: aws
+  runtime: go1.x
+  memorySize: 128
+
+package:
+ exclude:
+   - ./**
+ include:
+   - ./bin/**
+
+functions:
+  tweet:
+    handler: bin/tweet
