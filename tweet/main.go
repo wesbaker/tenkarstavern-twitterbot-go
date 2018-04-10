@@ -8,6 +8,7 @@ import (
 
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/evalphobia/logrus_sentry"
 	"github.com/joho/godotenv"
 	"github.com/mmcdole/gofeed"
 	log "github.com/sirupsen/logrus"
@@ -91,21 +92,29 @@ func ensureIndex(s *mgo.Session) {
 	}
 }
 
+// addSentryHook adds the logrus_sentry hook to send errors to Sentry
+func addSentryHook() {
+	hook, err := logrus_sentry.NewSentryHook(os.Getenv("SENTRY_DSN"), []log.Level{
+		log.PanicLevel,
+		log.FatalLevel,
+		log.ErrorLevel,
+	})
+	if err == nil {
+		log.AddHook(hook)
+	}
+	hook.Timeout = 500 * time.Millisecond
+}
+
 // tweetFeed sets up the TwitterAPI, connects to MongoDB, ensures the index, and
 // then tweets out the feed
 func tweetFeed() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Info("No .env file")
-	}
-
 	api := anaconda.NewTwitterApiWithCredentials(
 		os.Getenv("TWITTER_ACCESS_TOKEN"),
 		os.Getenv("TWITTER_ACCESS_TOKEN_SECRET"),
 		os.Getenv("TWITTER_CONSUMER_KEY"),
 		os.Getenv("TWITTER_CONSUMER_SECRET"),
 	)
-	_, err = api.VerifyCredentials()
+	_, err := api.VerifyCredentials()
 	if err != nil {
 		log.Fatal("Could not connect to Twitter")
 	}
@@ -117,15 +126,23 @@ func tweetFeed() {
 
 	ensureIndex(session)
 
-	if os.Getenv("ENVIRONMENT") == "development" {
-		log.SetLevel(log.DebugLevel)
-	}
-
 	for _, item := range getFeedItems() {
 		tweetItem(api, session, item)
 	}
 }
 
 func main() {
-	lambda.Start(tweetFeed)
+	err := godotenv.Load()
+	if err != nil {
+		log.Debug("No .env file")
+	}
+
+	addSentryHook()
+
+	if os.Getenv("ENVIRONMENT") == "development" {
+		log.SetLevel(log.DebugLevel)
+		tweetFeed()
+	} else {
+		lambda.Start(tweetFeed)
+	}
 }
