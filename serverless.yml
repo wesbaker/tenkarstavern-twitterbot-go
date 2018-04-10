@@ -4,6 +4,7 @@ provider:
   name: aws
   runtime: go1.x
   memorySize: 128
+  environment: ${file(./deploy/environments/production.yml)}
 
 package:
  exclude:
