@@ -9,11 +9,11 @@ import (
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/evalphobia/logrus_sentry"
+	mgo "github.com/globalsign/mgo"
+	"github.com/globalsign/mgo/bson"
 	"github.com/joho/godotenv"
 	"github.com/mmcdole/gofeed"
 	log "github.com/sirupsen/logrus"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 )
 
 // Tweet of URL from feed that has already been sent
@@ -109,20 +109,28 @@ func addSentryHook() {
 // tweetFeed sets up the TwitterAPI, connects to MongoDB, ensures the index, and
 // then tweets out the feed
 func tweetFeed() {
+	mongoDBDialInfo := &mgo.DialInfo{
+		Addrs:    []string{os.Getenv("MONGODB_HOST")},
+		Timeout:  500 * time.Millisecond,
+		Database: os.Getenv("MONGODB_DB"),
+		Username: os.Getenv("MONGODB_USER"),
+		Password: os.Getenv("MONGODB_PASS"),
+		FailFast: true,
+	}
+	session, err := mgo.DialWithInfo(mongoDBDialInfo)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	api := anaconda.NewTwitterApiWithCredentials(
 		os.Getenv("TWITTER_ACCESS_TOKEN"),
 		os.Getenv("TWITTER_ACCESS_TOKEN_SECRET"),
 		os.Getenv("TWITTER_CONSUMER_KEY"),
 		os.Getenv("TWITTER_CONSUMER_SECRET"),
 	)
-	_, err := api.VerifyCredentials()
+	_, err = api.VerifyCredentials()
 	if err != nil {
 		log.Fatal("Could not connect to Twitter")
-	}
-
-	session, err := mgo.DialWithTimeout(os.Getenv("MONGODB_URL"), 500*time.Millisecond)
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	go ensureIndex(session)
