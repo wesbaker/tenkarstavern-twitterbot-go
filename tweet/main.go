@@ -120,7 +120,7 @@ func tweetFeed() {
 		log.Fatal("Could not connect to Twitter")
 	}
 
-	session, err := mgo.Dial(os.Getenv("MONGODB_URL"))
+	session, err := mgo.DialWithTimeout(os.Getenv("MONGODB_URL"), 500*time.Millisecond)
 	if err != nil {
 		log.Fatal(err)
 	}
