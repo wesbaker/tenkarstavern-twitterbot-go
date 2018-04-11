@@ -4,6 +4,8 @@ provider:
   name: aws
   runtime: go1.x
   memorySize: 128
+  timeout: 3
+  logRetentionInDays: 7
   environment: ${file(./deploy/environments/production.yml)}
 
 package:
